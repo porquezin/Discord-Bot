@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://use.fontawesome.com/releases/v5.15.1/css/all.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #f4f7f6;
+            padding-top: 20px;
+        }
+
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary,
+        .btn-warning,
+        .btn-danger {
+            border: none;
+        }
+
+        .alert {
+            border-radius: 0;
+        }
+
+        .table {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Dashboard</h1>
+    </div>
+
+    <div class="container mt-3">
+        <button id="stopButton" class="btn btn-warning">Parar <i class="fas fa-stop-circle"></i></button>
+    </div>
+
+    <div class="container mt-5">
+        <h2>Adicionar Flag</h2>
+        <form id="flagForm">
+            <div class="form-group">
+                <label for="flag">Flag:</label>
+                <input type="text" class="form-control" id="flag" name="flag" required>
+            </div>
+            <div class="form-group">
+                <label for="points">Pontos:</label>
+                <input type="number" class="form-control" id="points" name="points" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Adicionar <i class="fas fa-plus-circle"></i></button>
+        </form>
+        <div id="formResponse" class="mt-3"></div>
+    </div>
+
+    <div class="container mt-5">
+        <h2>Flags</h2>
+        <table class="table" id="flagsTable">
+            <thead class="thead-light">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Flag</th>
+                    <th scope="col">Pontos</th>
+                    <th scope="col">Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="container mt-5">
+        <h2>Scoreboard</h2>
+        <table class="table">
+            <thead class="thead-light">
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Usuário</th>
+                    <th scope="col">Pontos</th>
+                </tr>
+            </thead>
+            <tbody id="scoreboard">
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.getElementById('stopButton').addEventListener('click', async function () {
+            const response = await fetch('/stop', { method: 'GET' });
+            if (response.ok) {
+                const result = await response.text();
+                alert('Ação parada com sucesso: ' + result);
+            } else {
+                alert('Erro ao parar a ação');
+            }
+        });
+
+        document.getElementById('flagForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const formProps = Object.fromEntries(formData);
+
+            try {
+                const response = await fetch('/flag', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formProps),
+                });
+
+                const result = await response.json();
+
+                document.getElementById('formResponse').textContent = result.message;
+                document.getElementById('formResponse').classList.add('alert');
+                if (response.ok) {
+                    document.getElementById('formResponse').classList.add('alert-success');
+                } else {
+                    document.getElementById('formResponse').classList.add('alert-danger');
+                }
+            } catch (error) {
+                console.error('Erro na requisição:', error);
+                document.getElementById('formResponse').textContent = 'Erro ao enviar a Flag.';
+                document.getElementById('formResponse').classList.add('alert', 'alert-danger');
+            }
+        });
+
+        document.addEventListener("DOMContentLoaded", function () {
+            fetchFlags();
+        });
+
+        async function fetchFlags() {
+            const response = await fetch('/flag');
+            const flags = await response.json();
+            const tableBody = document.getElementById('flagsTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = "";
+            flags.forEach((flag, index) => {
+                let row = `<tr>
+                    <th scope="row">${index + 1}</th>
+                    <td>${flag.flag}</td>
+                    <td>${flag.points}</td>
+                    <td><button class="btn btn-danger" onclick="deleteFlag('${flag.flag}')">Deletar</button></td>
+                </tr>`;
+                tableBody.innerHTML += row;
+            });
+        }
+
+        async function deleteFlag(flag) {
+            const response = await fetch('/flag/' + encodeURIComponent(flag), {
+                method: 'DELETE',
+            });
+            if (response.ok) {
+                fetchFlags();
+            } else {
+                alert('Erro ao deletar a Flag');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            fetch('/scoreboard')
+                .then(response => response.json())
+                .then(data => {
+                    const scoreboard = document.getElementById('scoreboard');
+                    data.forEach((user, index) => {
+                        let row = `<tr>
+                            <th scope="row">${index + 1}</th>
+                            <td>${user.user_id}</td>
+                            <td>${user.points}</td>
+                        </tr>`;
+                        scoreboard.innerHTML += row;
+                    });
+                });
+        });
+
+        function addClickListenerToButtons() {
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('click', function () {
+                    setTimeout(() => {
+                        fetchFlags();
+                        fetchScoreboard();
+                    }, 500);
+                });
+            });
+        }
+
+        async function fetchScoreboard() {
+            try {
+                const response = await fetch('/scoreboard');
+                if (response.ok) {
+                    const users = await response.json();
+                    const scoreboard = document.getElementById('scoreboard');
+                    scoreboard.innerHTML = "";
+                    users.forEach((user, index) => {
+                        let row = `<tr>
+                            <th scope="row">${index + 1}</th>
+                            <td>${user.user_id}</td>
+                            <td>${user.points}</td>
+                        </tr>`;
+                        scoreboard.innerHTML += row;
+                    });
+                } else {
+                    console.error('Falha ao buscar a pontuação');
+                }
+            } catch (error) {
+                console.error('Erro na requisição:', error);
+            }
+        }
+        document.addEventListener("DOMContentLoaded", function () {
+            fetchFlags();
+            fetchScoreboard();
+            addClickListenerToButtons();
+        });
+    </script>
+</body>
+
+</html>

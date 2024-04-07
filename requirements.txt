@@ -1,0 +1,6 @@
+python-dotenv
+discord
+pypresence
+flask
+aiohttp
+requests
